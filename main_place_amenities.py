@@ -18,7 +18,7 @@ city = City(state_id=state.id, name="San Francisco")
 city.save()
 
 # creation of a User
-user = User(email="john@snow.com", password="johnpwd")
+user = User(email="abaynew@yahoo.com", password="123")
 user.save()
 
 # creation of 2 Places
