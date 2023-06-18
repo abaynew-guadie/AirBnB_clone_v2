@@ -1,137 +1,164 @@
 #!/usr/bin/python3
-""" shebang line - defines where the interpreter is located """
+""" console """
+
 import cmd
-import shlex
+from datetime import datetime
 import models
-from models.base_model import BaseModel
-from models.user import User
-from models.state import State
-from models.city import City
 from models.amenity import Amenity
+from models.base_model import BaseModel
+from models.city import City
 from models.place import Place
 from models.review import Review
-""" import moduls """
+from models.state import State
+from models.user import User
+import shlex  # for splitting the line along spaces except in double quotes
+
+classes = {"Amenity": Amenity, "BaseModel": BaseModel, "City": City,
+           "Place": Place, "Review": Review, "State": State, "User": User}
 
 
 class HBNBCommand(cmd.Cmd):
-    """ class with methods to work into the commands line """
-    prompt = "(hbnb) "
-    list_class = ["BaseModel", "User", "State", "City",
-                  "Amenity", "Place", "Review"]
-    list_err = ["** class name missing **", "** class doesn't exist **",
-                "** instance id missing **", "** no instance found **",
-                "** attribute name missing **", "** value missing **"]
+    """ HBNH console """
+    prompt = '(hbnb) '
 
-    def do_create(self, line):
-        """ Create a new instance of BaseModel """
-        my_list = list(line.split())
-        if line == "":
-            print(self.list_err[0])
-        elif my_list[0] in self.list_class:
-            obj = eval(my_list[0])()
-            print(obj.id)
-            obj.save()
-        else:
-            print(self.list_err[1])
-
-    def do_show(self, line):
-        """ Show object by id """
-        my_list = list(line.split())
-        if line == "":
-            print(self.list_err[0])
-        elif my_list[0] not in self.list_class:
-            print(self.list_err[1])
-        elif len(my_list) == 1:
-            print(self.list_err[2])
-        else:
-            my_dic = models.storage.all()
-            if (my_list[0] + "." + my_list[1]) in my_dic.keys():
-                print(my_dic[my_list[0] + "." + my_list[1]])
-            else:
-                print(self.list_err[3])
-
-    def do_destroy(self, line):
-        """ delete object by id """
-        my_list = list(line.split())
-        if line == "":
-            print(self.list_err[0])
-        elif my_list[0] not in self.list_class:
-            print(self.list_err[1])
-        elif len(my_list) == 1:
-            print(self.list_err[2])
-        else:
-            my_dic = models.storage.all()
-            if (my_list[0] + "." + my_list[1]) in my_dic.keys():
-                del my_dic[my_list[0] + "." + my_list[1]]
-                models.storage.save()
-            else:
-                print(self.list_err[3])
-
-    def splitter(self, line):
-        """Function to split line into arguments using shlex"""
-        lex = shlex.shlex(line)
-        lex.quotes = '"'
-        lex.whitespace_split = True
-        lex.commenters = ''
-        return list(lex)
-
-    def do_all(self, line):
-        """Function that displays all class instances of given argument or all
-        if no argument given"""
-        dict_temp = models.storage.all()
-        if line is "":
-            list_obj = []
-            for obj_id in dict_temp.keys():
-                obj = dict_temp[obj_id]
-                list_obj.append("{}".format(obj))
-            print(list_obj)
-        else:
-            my_list = line.split()
-            if my_list[0] not in self.list_class:
-                print(self.list_err[1])
-            else:
-                list_obj = []
-                for key, value in dict_temp.items():
-                    if value.__class__.__name__ == my_list[0]:
-                        list_obj.append("{}".format(value))
-                print(list_obj)
-
-    def do_update(self, line):
-        """ update an object by className and id, with attribute and value """
-        my_list = self.splitter(line)
-        my_dic = models.storage.all()
-        if line == "":
-            print(self.list_err[0])
-        elif my_list[0] not in self.list_class:
-            print(self.list_err[1])
-        elif len(my_list) < 2:
-            print(self.list_err[2])
-        else:
-            if (my_list[0] + "." + my_list[1]) in my_dic.keys():
-                if len(my_list) < 3:
-                    print(self.list_err[4])
-                elif len(my_list) < 4:
-                    print(self.list_err[5])
-                else:
-                    obj_dic = my_dic[my_list[0] + "." + my_list[1]]
-                    setattr(obj_dic, my_list[2], my_list[3].replace("\"", ""))
-                    models.storage.save()
-            else:
-                print(self.list_err[3])
-
-    def do_quit(self, line):
-        """ Quit command to exit the program """
+    def do_EOF(self, arg):
+        """Exits console"""
         return True
 
-    def do_EOF(self, line):
-        """ EOF command to exit the program """
-        """ print()"""
-         return True
-
     def emptyline(self):
-        """ When the comand line is empty and it's typed """
-        pass
+        """ overwriting the emptyline method """
+        return False
 
-""" Executed the loop for Promp by default """
+    def do_quit(self, arg):
+        """Quit command to exit the program"""
+        return True
+
+    def _key_value_parser(self, args):
+        """creates a dictionary from a list of strings"""
+        new_dict = {}
+        for arg in args:
+            if "=" in arg:
+                kvp = arg.split('=', 1)
+                key = kvp[0]
+                value = kvp[1]
+                if value[0] == value[-1] == '"':
+                    value = shlex.split(value)[0].replace('_', ' ')
+                else:
+                    try:
+                        value = int(value)
+                    except:
+                        try:
+                            value = float(value)
+                        except:
+                            continue
+                new_dict[key] = value
+        return new_dict
+
+    def do_create(self, arg):
+        """Creates a new instance of a class"""
+        args = arg.split()
+        if len(args) == 0:
+            print("** class name missing **")
+            return False
+        if args[0] in classes:
+            new_dict = self._key_value_parser(args[1:])
+            instance = classes[args[0]](**new_dict)
+        else:
+            print("** class doesn't exist **")
+            return False
+        print(instance.id)
+        instance.save()
+
+    def do_show(self, arg):
+        """Prints an instance as a string based on the class and id"""
+        args = shlex.split(arg)
+        if len(args) == 0:
+            print("** class name missing **")
+            return False
+        if args[0] in classes:
+            if len(args) > 1:
+                key = args[0] + "." + args[1]
+                if key in models.storage.all():
+                    print(models.storage.all()[key])
+                else:
+                    print("** no instance found **")
+            else:
+                print("** instance id missing **")
+        else:
+            print("** class doesn't exist **")
+
+    def do_destroy(self, arg):
+        """Deletes an instance based on the class and id"""
+        args = shlex.split(arg)
+        if len(args) == 0:
+            print("** class name missing **")
+        elif args[0] in classes:
+            if len(args) > 1:
+                key = args[0] + "." + args[1]
+                if key in models.storage.all():
+                    models.storage.all().pop(key)
+                    models.storage.save()
+                else:
+                    print("** no instance found **")
+            else:
+                print("** instance id missing **")
+        else:
+            print("** class doesn't exist **")
+
+    def do_all(self, arg):
+        """Prints string representations of instances"""
+        args = shlex.split(arg)
+        obj_list = []
+        if len(args) == 0:
+            obj_dict = models.storage.all()
+        elif args[0] in classes:
+            obj_dict = models.storage.all(classes[args[0]])
+        else:
+            print("** class doesn't exist **")
+            return False
+        for key in obj_dict:
+            obj_list.append(str(obj_dict[key]))
+        print("[", end="")
+        print(", ".join(obj_list), end="")
+        print("]")
+
+    def do_update(self, arg):
+        """Update an instance based on the class name, id, attribute & value"""
+        args = shlex.split(arg)
+        integers = ["number_rooms", "number_bathrooms", "max_guest",
+                    "price_by_night"]
+        floats = ["latitude", "longitude"]
+        if len(args) == 0:
+            print("** class name missing **")
+        elif args[0] in classes:
+            if len(args) > 1:
+                k = args[0] + "." + args[1]
+                if k in models.storage.all():
+                    if len(args) > 2:
+                        if len(args) > 3:
+                            if args[0] == "Place":
+                                if args[2] in integers:
+                                    try:
+                                        args[3] = int(args[3])
+                                    except:
+                                        args[3] = 0
+                                elif args[2] in floats:
+                                    try:
+                                        args[3] = float(args[3])
+                                    except:
+                                        args[3] = 0.0
+                            setattr(models.storage.all()[k], args[2], args[3])
+                            models.storage.all()[k].save()
+                        else:
+                            print("** value missing **")
+                    else:
+                        print("** attribute name missing **")
+                else:
+                    print("** no instance found **")
+            else:
+                print("** instance id missing **")
+        else:
+            print("** class doesn't exist **")
+
 if __name__ == '__main__':
     HBNBCommand().cmdloop()
